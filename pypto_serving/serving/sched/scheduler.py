@@ -485,6 +485,18 @@ class Scheduler:
             if request.scheduling_held:
                 running_to_keep.append(request)
                 continue
+            # Under the depth-2 pipeline, placeholders here belong to one
+            # in-flight sampling step: one guaranteed output plus speculative
+            # slots that may all be rejected. Stop lookahead only when that
+            # guaranteed output reaches max_new_tokens.
+            if (
+                not request.is_prefill
+                and request.num_output_placeholders > 0
+                and request.num_computed_tokens + 2 - request.num_output_placeholders
+                >= request.num_prompt_tokens + request.max_new_tokens
+            ):
+                running_to_keep.append(request)
+                continue
             if grouped_phase is not None and request.is_prefill != (grouped_phase == "prefill"):
                 running_to_keep.append(request)
                 continue
